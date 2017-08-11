@@ -9,10 +9,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// ID for the bot
+// BotID is the ID for the bot
 var BotID string
 var goBot *discordgo.Session
 
+// Start starts the bot (duh)
 func Start() {
 	goBot, err := discordgo.New("Bot " + config.Token)
 
@@ -47,9 +48,8 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == BotID {
 			return
 		}
-		if string.SplitAfter(m.Content, " ") == 
-		if m.Content == "!addproject" {
-			_, _ = s.ChannelMessageSend(m.ChannelID, "no")
+		if strings.SplitAfter(m.Content, " ")[0] == "!addproject" {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "ok")
 		}
 	}
 }
