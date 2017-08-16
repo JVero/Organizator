@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 )
 
+// public variables
 var (
-	// Public variables
 	Token     string
 	BotPrefix string
 
@@ -20,11 +20,11 @@ type configStruct struct {
 	BotPrefix string `json:"BotPrefix"`
 }
 
+// ReadConfig reads the configuration from a json file
 func ReadConfig() error {
 	fmt.Println("Reading from config file...")
 
 	file, err := ioutil.ReadFile("./config.json")
-
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -38,6 +38,5 @@ func ReadConfig() error {
 
 	Token = config.Token
 	BotPrefix = config.BotPrefix
-
 	return nil
 }
