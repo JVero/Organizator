@@ -34,6 +34,19 @@ func StartSpecific(portnumber int) *mgo.Session {
 	return session
 }
 
+// AddProjectToDatabase takes the creators name and the name of the project and adds it to the database
+func AddProjectToDatabase(sess *mgo.Session, name string, projectname string) {
+	collection := sess.DB("DiscordBot").C("ProjectInfo")
+
+	newProject := Project{
+		Contributors: []string{},
+		Name:         projectname,
+		Creator:      name,
+	}
+
+	collection.Insert(newProject)
+}
+
 // fetchResponseFromDatabase is a generic function that returns the whole response for each function below to parse
 func fetchResponseFromDatabase(sess *mgo.Session, name string) Project {
 	collection := sess.DB("DiscordBot").C("ProjectInfo")
@@ -51,6 +64,17 @@ func fetchResponseFromDatabase(sess *mgo.Session, name string) Project {
 	return result
 }
 
+// FetchAllProjectsFromDatabase fetches...
+func FetchAllProjectsFromDatabase(sess *mgo.Session) []Project {
+	collection := sess.DB("DiscordBot").C("ProjectInfo")
+
+	var results []Project
+
+	collection.Find(bson.M{}).All(&results)
+
+	return results
+}
+
 // GetCreatorByName returns the creator of the project as a string
 func GetCreatorByName(sess *mgo.Session, name string) string {
 	result := fetchResponseFromDatabase(sess, name)
@@ -61,4 +85,12 @@ func GetCreatorByName(sess *mgo.Session, name string) string {
 func GetContributorsByName(sess *mgo.Session, name string) []string {
 	result := fetchResponseFromDatabase(sess, name)
 	return result.Contributors
+}
+
+// SetContributorsByName updates the list of contributors
+func SetContributorsByName(sess *mgo.Session, name string, newContributors []string) {
+	collection := sess.DB("DiscordBot").C("ProjectInfo")
+	update := bson.M{"$set": bson.M{"Contributors": newContributors}}
+	collection.Update(bson.M{"Name": name}, update)
+
 }

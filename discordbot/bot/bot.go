@@ -3,7 +3,7 @@ package bot
 import (
 	"fmt"
 
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2"
 
 	"strings"
 
@@ -45,8 +45,12 @@ func Start() {
 	BotID = u.ID
 
 	goBot.AddHandler(defaultHandler)
-	goBot.AddHandler(dbFetchContributor(databaseSession))
+	goBot.AddHandler(dbFetchContributors(databaseSession))
 	goBot.AddHandler(dbFetchCreator(databaseSession))
+	goBot.AddHandler(dbAddContributor(databaseSession))
+	goBot.AddHandler(dbAddProject(databaseSession))
+	goBot.AddHandler(dbFetchProjects(databaseSession))
+	goBot.AddHandler(helpHandler)
 
 	err = goBot.Open()
 	if err != nil {
@@ -59,6 +63,7 @@ func Start() {
 	return
 }
 
+// defaultHandler is just a simple template on how handers should work
 func defaultHandler(d *discordgo.Session, m *discordgo.MessageCreate) {
 	if strings.HasPrefix(m.Content, config.BotPrefix) {
 		if m.Author.ID == BotID {
@@ -67,22 +72,24 @@ func defaultHandler(d *discordgo.Session, m *discordgo.MessageCreate) {
 		if strings.HasPrefix(m.Content, "!findcontributors") {
 			fmt.Println("This happened")
 		}
-		if strings.SplitAfter(m.Content, " ")[0] == "!addproject" {
-			_, _ = d.ChannelMessageSend(m.ChannelID, "ok")
-		}
 
 	}
 }
 
-func dbFetchContributor(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+// Fetches the contributors of the project from the database, then formats it for Discord and sends a message
+func dbFetchContributors(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == BotID {
 			return
 		}
-		if strings.HasPrefix(m.Content, "!findcontributors") {
+		if strings.HasPrefix(m.Content, "!getcontributors") {
 			name := strings.Split(m.Content, " ")[1]
 			contributors := botdatabase.GetContributorsByName(db, name)
-
+			if len(contributors) == 0 {
+				message := "There are no contributors for that project yet :("
+				_, _ = d.ChannelMessageSend(m.ChannelID, message)
+				return
+			}
 			for index, contributor := range contributors {
 				contributors[index] = "<@" + string(contributor) + ">"
 			}
@@ -94,12 +101,13 @@ func dbFetchContributor(db *mgo.Session) func(d *discordgo.Session, m *discordgo
 	}
 }
 
+// Fetches the creator of the project from the database, then formats it for Discord and sends a message
 func dbFetchCreator(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == BotID {
 			return
 		}
-		if strings.HasPrefix(m.Content, "!findcreator") {
+		if strings.HasPrefix(m.Content, "!getcreator") {
 			name := strings.Split(m.Content, " ")[1]
 			creator := botdatabase.GetCreatorByName(db, name)
 
@@ -108,5 +116,94 @@ func dbFetchCreator(db *mgo.Session) func(d *discordgo.Session, m *discordgo.Mes
 			_, _ = d.ChannelMessageSend(m.ChannelID, message)
 
 		}
+	}
+}
+
+func dbAddContributor(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == BotID {
+			return
+		}
+		if strings.HasPrefix(m.Content, "!addme") {
+			newContributor := m.Author.ID
+			projectName := strings.SplitAfter(m.Content, " ")[1]
+
+			previousContributors := botdatabase.GetContributorsByName(db, projectName)
+			for _, contributors := range previousContributors {
+				if contributors == newContributor {
+					message := "That user has already been added to the project"
+					_, _ = d.ChannelMessageSend(m.ChannelID, message)
+					return
+				}
+			}
+			newContributors := append(previousContributors, newContributor)
+
+			allProjects := botdatabase.FetchAllProjectsFromDatabase(db)
+			for _, project := range allProjects {
+				if project.Name == projectName {
+					botdatabase.SetContributorsByName(db, projectName, newContributors)
+					message := "User <@" + m.Author.ID + "> successfully added!"
+					_, _ = d.ChannelMessageSend(m.ChannelID, message)
+					return
+				}
+			}
+			message := "That project doesn't exist, use the !getprojects command to see a list of available projects"
+			_, _ = d.ChannelMessageSend(m.ChannelID, message)
+
+		}
+
+	}
+}
+
+func dbAddProject(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == BotID {
+			return
+		}
+		if strings.HasPrefix(m.Content, "!addproject") {
+			newProject := strings.SplitAfter(m.Content, " ")[1]
+			projects := botdatabase.FetchAllProjectsFromDatabase(db)
+			for _, project := range projects {
+				if project.Name == newProject {
+					message := "A project already exists with this name, please try another name.  For a list of existing projects, use the command !listprojects"
+					_, _ = d.ChannelMessageSend(m.ChannelID, message)
+					return
+				}
+			}
+			botdatabase.AddProjectToDatabase(db, m.Author.ID, newProject)
+
+			message := "Project successfully added!"
+			_, _ = d.ChannelMessageSend(m.ChannelID, message)
+		}
+	}
+}
+
+func dbFetchProjects(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == BotID {
+			return
+		}
+		if strings.HasPrefix(m.Content, "!getprojects") {
+			projects := botdatabase.FetchAllProjectsFromDatabase(db)
+			message := "```\n"
+			for _, project := range projects {
+				fmt.Println(project.Name)
+				message += project.Name + "\n"
+			}
+			message += "```"
+			_, _ = d.ChannelMessageSend(m.ChannelID, message)
+		}
+	}
+}
+
+func helpHandler(d *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Message.Content == "!help" {
+		message := "The possible commands for this bot include ```\n" +
+			"!getcontributors <project> \n" +
+			"!getcreator <project> \n" +
+			"!addme <project> \n" +
+			"!addproject <project> \n" +
+			"!getprojects \n```"
+		d.ChannelMessageSend(m.ChannelID, message)
 	}
 }
