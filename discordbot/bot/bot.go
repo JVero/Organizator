@@ -51,6 +51,7 @@ func Start() {
 	goBot.AddHandler(dbAddProject(databaseSession))
 	goBot.AddHandler(dbFetchProjects(databaseSession))
 	goBot.AddHandler(helpHandler)
+	goBot.AddHandler(dbAddPermissions(databaseSession))
 
 	err = goBot.Open()
 	if err != nil {
@@ -88,7 +89,7 @@ func dbFetchContributors(db *mgo.Session) func(d *discordgo.Session, m *discordg
 			if len(contributors) == 0 {
 				message := "There are no contributors for that project yet :("
 				_, _ = d.ChannelMessageSend(m.ChannelID, message)
-				return
+
 			}
 			for index, contributor := range contributors {
 				contributors[index] = "<@" + string(contributor) + ">"
@@ -108,13 +109,20 @@ func dbFetchCreator(db *mgo.Session) func(d *discordgo.Session, m *discordgo.Mes
 			return
 		}
 		if strings.HasPrefix(m.Content, "!getcreator") {
-			name := strings.Split(m.Content, " ")[1]
-			creator := botdatabase.GetCreatorByName(db, name)
 
-			message := "The creator of " + name + " is <@" + creator + ">"
+			projectName := strings.Split(m.Content, " ")[1]
 
+			allProjects := botdatabase.FetchAllProjectsFromDatabase(db)
+			for _, value := range allProjects {
+				if value.Name == projectName {
+					message := "The creator of " + value.Name + " is <@" + value.Creator + ">"
+					_, _ = d.ChannelMessageSend(m.ChannelID, message)
+					return
+				}
+			}
+			message := "There is no project with the name " + projectName + ".\n" +
+				"To find a list of all projects, use the command !getprojects"
 			_, _ = d.ChannelMessageSend(m.ChannelID, message)
-
 		}
 	}
 }
@@ -207,3 +215,15 @@ func helpHandler(d *discordgo.Session, m *discordgo.MessageCreate) {
 		d.ChannelMessageSend(m.ChannelID, message)
 	}
 }
+
+// Not functional yet, TBA feature
+/*func dbAddPermissions(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
+		if strings.HasPrefix(m.Content, "!permit") {
+			if botdatabase.HasPermission(db, m.Author.ID) == true {
+				newUser := strings.SplitAfter(m.Content, " ")[1]
+				fmt.Println(newUser)
+			}
+		}
+	}
+}*/

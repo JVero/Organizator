@@ -94,3 +94,12 @@ func SetContributorsByName(sess *mgo.Session, name string, newContributors []str
 	collection.Update(bson.M{"Name": name}, update)
 
 }
+
+// HasPermission checks to see if the user has permission to do certain functions
+func HasPermission(sess *mgo.Session, user string) bool {
+	collection := sess.DB("DiscordBot").C("PermittedUsers")
+	var results []string
+	collection.FindId("5993d4a22ca6a623774ada47").One(&results)
+	fmt.Println(results, "this")
+	return true
+}
