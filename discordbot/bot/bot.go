@@ -232,7 +232,6 @@ func helpHandler(d *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-// Not functional yet, WIP feature
 func dbAddPermissions(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
 		if strings.HasPrefix(m.Content, "!permit <@") && strings.HasSuffix(m.Content, ">") {
