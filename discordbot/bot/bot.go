@@ -52,6 +52,7 @@ func Start() {
 	goBot.AddHandler(dbAddProject(databaseSession))
 	goBot.AddHandler(dbFetchProjects(databaseSession))
 	goBot.AddHandler(dbAddPermissions(databaseSession))
+	goBot.AddHandler(dbRemoveProject(databaseSession))
 
 	err = goBot.Open()
 	if err != nil {
@@ -258,6 +259,22 @@ func dbAddPermissions(db *mgo.Session) func(d *discordgo.Session, m *discordgo.M
 				return
 			}
 			message := "You do not have appropriate permissions to add a user!"
+			_, _ = d.ChannelMessageSend(m.ChannelID, message)
+		}
+	}
+}
+
+func dbRemoveProject(db *mgo.Session) func(d *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(d *discordgo.Session, m *discordgo.MessageCreate) {
+		if strings.HasPrefix(m.Content, "!remove ") {
+			if botdatabase.HasPermission(db, m.Author.ID) {
+				projectName := strings.Replace(m.Content, "!remove ", "", 1)
+				botdatabase.RemoveProjectFromDatabase(db, projectName)
+				message := "The project has been removed!  Confirm by using !getprojects"
+				_, _ = d.ChannelMessageSend(m.ChannelID, message)
+				return
+			}
+			message := "You do not have the permissions to do this"
 			_, _ = d.ChannelMessageSend(m.ChannelID, message)
 		}
 	}

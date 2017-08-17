@@ -80,6 +80,13 @@ func FetchAllProjectsFromDatabase(sess *mgo.Session) []Project {
 	return results
 }
 
+// RemoveProjectFromDatabase removes a project from the database
+func RemoveProjectFromDatabase(sess *mgo.Session, projectname string) {
+	collection := sess.DB("DiscordBot").C("ProjectInfo")
+
+	collection.Remove(bson.M{"Name": projectname})
+}
+
 // GetCreatorByName returns the creator of the project as a string
 func GetCreatorByName(sess *mgo.Session, name string) string {
 	result := fetchResponseFromDatabase(sess, name)
