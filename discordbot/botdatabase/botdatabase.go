@@ -16,6 +16,11 @@ type Project struct {
 	Creator      string   `bson:"Creator"`
 }
 
+// Allowed is the format for the list of allowed users to perform administrative commands
+type Allowed struct {
+	Members []string `bson:"Allowed"`
+}
+
 // Start the database on port 27017, use StartSpecific to choose your own port location
 func Start() *mgo.Session {
 	session, err := mgo.Dial("localhost:27017")
@@ -98,8 +103,34 @@ func SetContributorsByName(sess *mgo.Session, name string, newContributors []str
 // HasPermission checks to see if the user has permission to do certain functions
 func HasPermission(sess *mgo.Session, user string) bool {
 	collection := sess.DB("DiscordBot").C("PermittedUsers")
-	var results []string
-	collection.FindId("5993d4a22ca6a623774ada47").One(&results)
-	fmt.Println(results, "this")
-	return true
+	var results Allowed
+	err := collection.Find(bson.M{}).One(&results)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	for _, member := range results.Members {
+		if member == user {
+			return true
+		}
+	}
+	return false
+}
+
+// AddPermissions , given a user, adds that user to a list of authorized users
+func AddPermissions(sess *mgo.Session, newUser string) string {
+	collection := sess.DB("DiscordBot").C("PermittedUsers")
+	var results Allowed
+	err := collection.Find(bson.M{}).One(&results)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	for _, member := range results.Members {
+		if member == newUser {
+			return "Already Exists"
+		}
+	}
+	newMembers := append(results.Members, newUser)
+	update := bson.M{"$set": bson.M{"Allowed": newMembers}}
+	collection.Update(bson.M{"Name": "Allowed"}, update)
+	return "Success"
 }
